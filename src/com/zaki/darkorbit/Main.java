@@ -4,7 +4,7 @@ import java.awt.*;
 
 public class Main {
 
-    public static void main(String[] args) throws AWTException {
+    public static void main(String[] args) throws Exception {
 
         // get screen resolution
         Dimension dim = Toolkit.getDefaultToolkit().getScreenSize();
@@ -13,6 +13,12 @@ public class Main {
         int startY = 80;
 
         Collector c = new Collector(0, startY, width, height - startY);
-        c.collect();
+        while (true) {
+            try {
+                c.collect();
+            } catch (Exception e) {
+                // TODO
+            }
+        }
     }
 }

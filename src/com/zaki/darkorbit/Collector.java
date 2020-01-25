@@ -3,66 +3,23 @@ package com.zaki.darkorbit;
 import java.awt.*;
 import java.awt.event.InputEvent;
 import java.awt.image.BufferedImage;
-import java.util.ArrayList;
-import java.util.List;
+import java.io.IOException;
 
 public class Collector {
 
-    private static class Point {
+    private static final int NEAR_LAST_POINT_DEST = 20;
 
-        private int x;
-        private int y;
+    private int NEAR_YELLOW_RED_LOW;
 
-        Point(int x, int y) {
-            this.x = x;
-            this.y = y;
-        }
+    private int NEAR_YELLOW_GREEN_LOW;
 
-        @Override
-        public String toString() {
-            return "(" + x + ", " + y + ")";
-        }
-    }
+    private int NEAR_YELLOW_BLUE_LOW;
 
-    private static List<Point> mapCoordinates = new ArrayList<>();
+    private int NEAR_YELLOW_RED_TOP;
 
-    // Builds List with mini map coordinates which the program will visit
-    static {
-        boolean goRightOnXAxis = true;
-        // 692 is position 6 as Y in the mini map
-        // 1413 is position 125 as Y in the mini map
-        for (int y = 692; y <= 1413; y+=6) {
+    private int NEAR_YELLOW_GREEN_TOP;
 
-            // 1334 is position 6 as X in the mini map
-            // 1510 is position 200 as X in the mini map
-            if (goRightOnXAxis) {
-                for (int x = 1334; x <= 1510; x += 12) {
-                    mapCoordinates.add(new Point(x, y));
-                }
-            } else {
-                // going backward on X axis
-                // This should imitate process like
-                // -> 1 2 3 4 5
-                //   10 9 8 7 6  <-
-                for (int x = 1510; x >= 1334; x -= 12) {
-                    mapCoordinates.add(new Point(x, y));
-                }
-            }
-            goRightOnXAxis = !goRightOnXAxis;
-        }
-    }
-
-    private static final int NEAR_YELLOW_RED_LOW = 245;
-
-    private static final int NEAR_YELLOW_GREEN_LOW = 230;
-
-    private static final int NEAR_YELLOW_BLUE_LOW = 170;
-
-    private static final int NEAR_YELLOW_RED_TOP = 255;
-
-    private static final int NEAR_YELLOW_GREEN_TOP = 250;
-
-    private static final int NEAR_YELLOW_BLUE_TOP = 255;
+    private int NEAR_YELLOW_BLUE_TOP;
 
     private int startX;
 
@@ -74,11 +31,33 @@ public class Collector {
 
     private CollectorsLogger logger = new CollectorsLogger();
 
-    public Collector(int startX, int startY, int endX, int endY) {
+    private int lastX;
+
+    private int lastY;
+
+    private MapVisiter mapVisiter;
+
+    public Collector(int startX, int startY, int endX, int endY) throws IOException {
+
         setStartX(startX);
         setStartY(startY);
         setEndX(endX);
         setEndY(endY);
+        mapVisiter = new MapVisiter();
+
+        Analyzer analyzer = new Analyzer("resources/data");
+        NEAR_YELLOW_RED_LOW = analyzer.getMinRed();
+        NEAR_YELLOW_GREEN_LOW = analyzer.getMinGreen();
+        NEAR_YELLOW_BLUE_LOW = analyzer.getMinBlue();
+        NEAR_YELLOW_RED_TOP = analyzer.getMaxRed();
+        NEAR_YELLOW_GREEN_TOP = analyzer.getMaxGreen();
+        NEAR_YELLOW_BLUE_TOP = analyzer.getMaxBlue();
+
+        System.out.println("Min rgb(" + NEAR_YELLOW_RED_LOW + ", " + NEAR_YELLOW_GREEN_LOW + ", " + NEAR_YELLOW_BLUE_LOW + ")");
+        System.out.println("Max rgb(" + NEAR_YELLOW_RED_TOP + ", " + NEAR_YELLOW_GREEN_TOP + ", " + NEAR_YELLOW_BLUE_TOP + ")");
+
+        lastX = 0;
+        lastY = 0;
     }
 
     private void setStartX(int startX) {
@@ -102,22 +81,20 @@ public class Collector {
         Robot r = new Robot();
 
         int nextCoordinateToVisitIndex = 0;
-        boolean reverseCoordinateVisitation = false;
 
         while (true) {
-            if (reverseCoordinateVisitation && nextCoordinateToVisitIndex == 0) {
-                reverseCoordinateVisitation = false;
-            } else {
-                if (nextCoordinateToVisitIndex == mapCoordinates.size() - 1) {
-                    reverseCoordinateVisitation = true;
-                }
-            }
-            int[] coords = checkScreen(r.createScreenCapture(new Rectangle(endX, endY)), r);
+
+            int[] coords = doubleCheckScreen(r.createScreenCapture(new Rectangle(endX, endY)));
+            int xPos = coords[0];
+            int yPos = coords[1];
+            boolean userHasToClick = xPos != 0 && yPos != 0;
+        /*
+            int[] coords = new int[]{0, 0};
             int xPos = coords[0];
             int yPos = coords[1];
             boolean userHasToClick = xPos != 0 && yPos != 0;
 
-            /*int x = (int) MouseInfo.getPointerInfo().getLocation().getX();
+            int x = (int) MouseInfo.getPointerInfo().getLocation().getX();
             int y = (int) MouseInfo.getPointerInfo().getLocation().getY();
 
             Color c = new Color(r.createScreenCapture(new Rectangle(endX, endY)).getRGB(x, y));
@@ -130,22 +107,28 @@ public class Collector {
                     red <= NEAR_YELLOW_RED_TOP && green <= NEAR_YELLOW_GREEN_TOP && blue <= NEAR_YELLOW_BLUE_TOP) {
                 System.out.println("OK MATCH");
             }
-            System.out.println(red + " " + green + " " + blue);*/
+            System.out.println(red + " " + green + " " + blue);
+        */
 
             if (!userHasToClick) {
-                Point nextCoordinate = mapCoordinates.get(nextCoordinateToVisitIndex);
-                xPos = nextCoordinate.x;
-                yPos = nextCoordinate.y;
-                if (reverseCoordinateVisitation) {
-                    nextCoordinateToVisitIndex--;
-                } else {
-                    nextCoordinateToVisitIndex++;
-                }
+                Point nextCoordinate = mapVisiter.getNextPoint();
+                xPos = nextCoordinate.getX();
+                yPos = nextCoordinate.getY();
             }
 
-            int waitMs = userHasToClick ? 2000 : 4500;
+            int waitMs = userHasToClick ? 1200 : 4500;
             click(xPos, yPos, waitMs);
         }
+    }
+
+    private int[] doubleCheckScreen(BufferedImage screenCapture) throws AWTException {
+
+        int[] coords = checkScreen(screenCapture);
+        if (coords[0] == 0 && coords[1] == 0) {
+            coords = checkScreen(screenCapture);
+        }
+
+        return coords;
     }
 
     private void click(int x, int y, int timeToWait) throws AWTException {
@@ -162,28 +145,68 @@ public class Collector {
         }
     }
 
-    private int[] checkScreen(BufferedImage screenImg, Robot r) throws AWTException {
+    private int[] checkScreen(BufferedImage screenImg) throws AWTException {
+
+        Point.Direction lastPointDirection = mapVisiter.getLastPointDirection();
 
         boolean userHasToClick = false;
         int xPos = 0, yPos = 0;
-        for (int y = startY; y < endY; y+=4) {
-            for (int x = startX; x < endX; x+=3) {
-                // remove map pixels
-                if (x >= 1290 && y >= 630) {
-                    // these are mini map coordinates
-                    continue;
+
+        if (lastPointDirection == Point.Direction.RIGHT) {
+            for (int y = startY; y < endY; y += 4) {
+                for (int x = startX; x < endX; x += 3) {
+                    // remove map pixels
+                    if (x >= 1290 && y >= 630) {
+                        // these are mini map coordinates
+                        continue;
+                    }
+
+                    if (isPixelClickable(screenImg, x, y) && isPixelClickable(screenImg, x - 1, y) && isPixelClickable(screenImg, x + 1, y)) {
+
+                        // check if we clicked near that point of 5px last time
+                        boolean isNearLastPoint = x - NEAR_LAST_POINT_DEST <= lastX && lastX <= x + NEAR_LAST_POINT_DEST && y - NEAR_LAST_POINT_DEST <= lastY && lastY <= y + NEAR_LAST_POINT_DEST;
+                        if (!isNearLastPoint) {
+                            userHasToClick = true;
+                            xPos = x;
+                            yPos = y;
+                            lastX = xPos;
+                            lastY = yPos;
+
+                            break;
+                        }
+                    }
                 }
-
-                if (isPixelClickable(screenImg, x, y) && isPixelClickable(screenImg, x - 1, y) && isPixelClickable(screenImg, x + 1, y)) {
-                    userHasToClick = true;
-                    xPos = x;
-                    yPos = y;
-
+                if (userHasToClick) {
                     break;
                 }
             }
-            if (userHasToClick) {
-                break;
+        } else {
+            for (int y = endY - 1; y >= startY; y -= 4) {
+                for (int x = endX - 1; x >= startX ; x -= 3) {
+                    // remove map pixels
+                    if (x >= 1290 && y >= 630) {
+                        // these are mini map coordinates
+                        continue;
+                    }
+
+                    if (isPixelClickable(screenImg, x, y) && isPixelClickable(screenImg, x - 1, y) && isPixelClickable(screenImg, x + 1, y)) {
+
+                        // check if we clicked near that point of 5px last time
+                        boolean isNearLastPoint = x - NEAR_LAST_POINT_DEST <= lastX && lastX <= x + NEAR_LAST_POINT_DEST && y - NEAR_LAST_POINT_DEST <= lastY && lastY <= y + NEAR_LAST_POINT_DEST;
+                        if (!isNearLastPoint) {
+                            userHasToClick = true;
+                            xPos = x;
+                            yPos = y;
+                            lastX = xPos;
+                            lastY = yPos;
+
+                            break;
+                        }
+                    }
+                }
+                if (userHasToClick) {
+                    break;
+                }
             }
         }
 

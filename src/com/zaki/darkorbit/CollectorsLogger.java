@@ -1,8 +1,8 @@
 package com.zaki.darkorbit;
 
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
@@ -27,6 +27,9 @@ public class CollectorsLogger {
     }
 
     public void onCollect(double red, double green, double blue) {
+
+        System.out.println("Collecting rgb(" + red + ", " + green + ", " + blue + ")");
+
         this.red += red;
         this.green += green;
         this.blue += blue;
@@ -50,9 +53,10 @@ public class CollectorsLogger {
             logFile.createNewFile();
         }
 
-        String logMessage = "Collected boxes: " + collectedObjects / 3 + ", rgb(" + red / collectedObjects + ", " + green / collectedObjects + ", " + blue / collectedObjects + ")\n";
-        try (PrintWriter out = new PrintWriter(logFile)) {
-            out.append(logMessage);
+        String logMessage = "Collected boxes: " + collectedObjects / 3 + ", rgb(" + red / collectedObjects + ", " + green / collectedObjects + ", " + blue / collectedObjects + ")";
+        try (FileWriter out = new FileWriter(logFile, true)) {
+            out.write(logMessage);
+            out.write("\n");
         }
     }
 }
