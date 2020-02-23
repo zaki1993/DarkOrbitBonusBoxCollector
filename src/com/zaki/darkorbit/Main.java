@@ -7,17 +7,23 @@ public class Main {
     public static void main(String[] args) throws Exception {
 
         // get screen resolution
-        Dimension dim = Toolkit.getDefaultToolkit().getScreenSize();
-        int width = dim.width;
-        int height = dim.height;
+        int endX = 1500;
+        int endY = 800;
+        int startX = 0;
         int startY = 80;
 
-        Collector c = new Collector(0, startY, width, height - startY);
+/*
+        while (true)
+            System.out.println(MouseInfo.getPointerInfo().getLocation());
+*/
+
+        Collector c = new Collector(startX, startY, endX, endY);
         while (true) {
             try {
                 c.collect();
             } catch (Exception e) {
                 // TODO
+                e.printStackTrace();
             }
         }
     }

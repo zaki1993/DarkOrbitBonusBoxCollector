@@ -1,10 +1,12 @@
 package com.zaki.darkorbit;
 
+import com.zaki.darkorbit.geometry.Point;
+
 import java.util.List;
 
 public class MapVisiter {
 
-    private static List<Point> mapCoordinates = DarkOrbitMap.getMap(DarkOrbitMap.MapType.MMO_4_1);
+    private static List<Point> mapCoordinates = DarkOrbitMap.getMap(DarkOrbitMap.MapType.MMO_1_2);
 
     private int nextCoordinateToVisitIndex;
 
@@ -48,5 +50,15 @@ public class MapVisiter {
 
     public Point.Direction getLastPointDirection() {
         return lastPoint == null ? Point.Direction.NONE : lastPoint.getDirection();
+    }
+
+    public Point getSafePortal() {
+        return DarkOrbitMap.getSafePortal(DarkOrbitMap.MapType.MMO_1_2); // TODO get this as input
+    }
+
+    public void reset() {
+        this.nextCoordinateToVisitIndex = 0;
+        this.reverseCoordinateVisitation = false;
+        this.lastPoint = null;
     }
 }
